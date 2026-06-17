@@ -38,7 +38,9 @@ class ClassificationSchema(BaseModel):
     request_type: Literal["complaint", "general_enquiry", "service_request", "escalation"] = Field(
         description="Primary request branch"
     )
-    urgency: Literal["low", "medium", "high", "critical"] = Field(description="Urgency level")
+    urgency: Literal["low", "medium", "high", "critical"] = Field(
+        description="Urgency level. Allowed values: low, medium, high, critical."
+    )
     sub_topic: str = Field(description="Short operational topic summary")
     client_sentiment: Literal["neutral", "frustrated", "angry", "distressed"] = Field(description="Detected sentiment")
     reasoning: str = Field(description="One sentence explanation")
@@ -62,6 +64,14 @@ class RequestState(TypedDict, total=False):
     steps_taken: Annotated[list[str], operator.add]
 
 
+DEFAULT_URGENCY_BY_TYPE = {
+    "general_enquiry": "low",
+    "service_request": "medium",
+    "complaint": "high",
+    "escalation": "critical",
+}
+
+
 def _case_log(state: RequestState) -> str:
     return (
         f"TYPE={state.get('request_type', '')} | SUB_TOPIC={state.get('sub_topic', '')} | "
@@ -80,18 +90,21 @@ def classify_request(state: RequestState):
         "- general_enquiry: questions about accounts, products, policies, or how-to guidance\n"
         "- service_request: requests that require an action such as a transfer, update, reset, or document handling\n"
         "- escalation: legal language, regulatory threats, reputational risk, or immediate human review\n\n"
-        "Return a concise result with a sub-topic, one-sentence reasoning, and a branch_summary that an operations team can use.\n\n"
+        "Use these urgency defaults unless the request clearly requires a higher severity: complaint=high, general_enquiry=low, service_request=medium, escalation=critical.\n"
+        "Return a concise result with a sub-topic, one-sentence reasoning, and a branch_summary that an operations team can use.\n"
+        "For urgency, choose exactly one of: low, medium, high, critical.\n\n"
         f"Request:\n{state['raw_request']}\n"
     )
     result = structured.invoke(prompt)
+    urgency = DEFAULT_URGENCY_BY_TYPE[result.request_type]
     return {
         "request_type": result.request_type,
-        "urgency": result.urgency,
+        "urgency": urgency,
         "sub_topic": result.sub_topic,
         "client_sentiment": result.client_sentiment,
         "classification_reasoning": result.reasoning,
         "branch_summary": result.branch_summary,
-        "steps_taken": [f"[CLASSIFY] {result.request_type} | {result.urgency} | {result.sub_topic}"],
+        "steps_taken": [f"[CLASSIFY] {result.request_type} | {urgency} | {result.sub_topic}"],
     }
 
 
