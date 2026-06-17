@@ -20,7 +20,12 @@ GROQ_MODELS = {
 
 
 def _groq(model_name: str) -> ChatGroq:
-    return ChatGroq(model=model_name, temperature=0, api_key=os.environ["GROQ_API_KEY"])
+    api_key = os.getenv("GROQ_API_KEY")
+    if not api_key:
+        raise RuntimeError(
+            "GROQ_API_KEY is missing. Add it to Streamlit Cloud secrets or your local environment."
+        )
+    return ChatGroq(model=model_name, temperature=0, api_key=api_key)
 
 
 classifier_llm = _groq(GROQ_MODELS["classifier"])

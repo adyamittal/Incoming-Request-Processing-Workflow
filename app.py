@@ -22,6 +22,12 @@ if "GROQ_API_KEY" not in os.environ:
     except Exception:
         pass
 
+if not os.getenv("GROQ_API_KEY"):
+    st.error(
+        "Missing GROQ_API_KEY. Add it in Streamlit Cloud secrets for deployment, or set it in your local environment/.env file."
+    )
+    st.stop()
+
 from logger import fetch_all_logs, fetch_summary, log_request
 from sample_req import SAMPLES
 from workflow import process_request
