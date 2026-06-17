@@ -1,0 +1,13 @@
+.env
+.venv/
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.streamlit/
+data/request_log.db
+*.db
+*.sqlite3
+*.log
