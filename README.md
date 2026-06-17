@@ -43,6 +43,18 @@ pip install -r req.txt
 streamlit run app.py
 ```
 
+## Deploying on Streamlit Community Cloud
+
+Streamlit Cloud reads [requirements.txt](requirements.txt), so this repo includes that file alongside the local [req.txt](req.txt) copy.
+
+1. Push the repo to GitHub.
+2. Create a new Streamlit Community Cloud app from the repository.
+3. Set the main file path to `app.py`.
+4. Add `GROQ_API_KEY` in the Streamlit Cloud secrets panel.
+5. Deploy and open the app URL Streamlit gives you.
+
+If you are running locally, `.env` still works through `app.py`. On Streamlit Cloud, `app.py` reads `GROQ_API_KEY` from secrets and passes it into the workflow.
+
 ## Workflow Design
 
 ```text

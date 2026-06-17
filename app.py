@@ -9,6 +9,19 @@ import streamlit as st
 
 sys.path.insert(0, os.path.dirname(__file__))
 
+try:
+    from dotenv import load_dotenv
+
+    load_dotenv()
+except ModuleNotFoundError:
+    pass
+
+if "GROQ_API_KEY" not in os.environ:
+    try:
+        os.environ["GROQ_API_KEY"] = st.secrets["GROQ_API_KEY"]
+    except Exception:
+        pass
+
 from logger import fetch_all_logs, fetch_summary, log_request
 from sample_req import SAMPLES
 from workflow import process_request

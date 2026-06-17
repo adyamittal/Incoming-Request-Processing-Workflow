@@ -6,13 +6,10 @@ import operator
 import os
 from typing import Annotated, Literal, TypedDict
 
-from dotenv import load_dotenv
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_groq import ChatGroq
 from langgraph.graph import END, START, StateGraph
 from pydantic import BaseModel, Field
-
-load_dotenv()
 
 GROQ_MODELS = {
     "classifier": "llama-3.1-8b-instant",
