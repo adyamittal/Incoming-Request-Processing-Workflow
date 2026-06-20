@@ -74,6 +74,34 @@ DEFAULT_URGENCY_BY_TYPE = {
 }
 
 
+ESCALATION_MARKERS = (
+    "regulator",
+    "regulatory",
+    "legal",
+    "solicitor",
+    "lawyer",
+    "ombudsman",
+    "senior manager",
+    "ceo",
+    "director",
+    "today",
+    "immediately",
+    "urgent",
+    "critical",
+    "severely delayed",
+    "highly delayed",
+    "terrible service",
+    "unacceptable",
+    "extreme",
+    "escalate",
+)
+
+
+def _looks_like_escalation(raw_request: str) -> bool:
+    text = raw_request.lower()
+    return any(marker in text for marker in ESCALATION_MARKERS)
+
+
 def _case_log(state: RequestState) -> str:
     return (
         f"TYPE={state.get('request_type', '')} | SUB_TOPIC={state.get('sub_topic', '')} | "
@@ -86,28 +114,35 @@ def _case_log(state: RequestState) -> str:
 
 def classify_request(state: RequestState):
     structured = classifier_llm.with_structured_output(ClassificationSchema)
+    escalation_hint = _looks_like_escalation(state["raw_request"])
     prompt = (
         "You are triaging incoming customer requests.\n\n"
         "Classify the request using these branches:\n"
-        "- complaint: dissatisfaction, billing dispute, poor service, error, or feedback\n"
+        "- complaint: dissatisfaction, billing dispute, poor service, error, or feedback that does not require immediate senior intervention\n"
         "- general_enquiry: questions about accounts, products, policies, or how-to guidance\n"
         "- service_request: requests that require an action such as a transfer, update, reset, or document handling\n"
-        "- escalation: legal language, regulatory threats, reputational risk, or immediate human review\n\n"
+        "- escalation: urgent complaints with severe delay, terrible service, extreme sentiment, legal language, regulatory threats, reputational risk, or immediate senior review\n\n"
         "Use these urgency defaults unless the request clearly requires a higher severity: complaint=high, general_enquiry=low, service_request=medium, escalation=critical.\n"
+        "If the request expresses highly delayed handling, terrible service, extreme sentiment, or a request for immediate senior review, choose escalation rather than complaint.\n"
         "Return a concise result with a sub-topic, one-sentence reasoning, and a branch_summary that an operations team can use.\n"
         "For urgency, choose exactly one of: low, medium, high, critical.\n\n"
         f"Request:\n{state['raw_request']}\n"
     )
     result = structured.invoke(prompt)
-    urgency = DEFAULT_URGENCY_BY_TYPE[result.request_type]
+    request_type = "escalation" if escalation_hint and result.request_type == "complaint" else result.request_type
+    urgency = DEFAULT_URGENCY_BY_TYPE[request_type]
     return {
-        "request_type": result.request_type,
+        "request_type": request_type,
         "urgency": urgency,
         "sub_topic": result.sub_topic,
         "client_sentiment": result.client_sentiment,
-        "classification_reasoning": result.reasoning,
+        "classification_reasoning": (
+            f"Escalation override applied due to urgent severity cue. {result.reasoning}"
+            if request_type == "escalation" and escalation_hint and result.request_type == "complaint"
+            else result.reasoning
+        ),
         "branch_summary": result.branch_summary,
-        "steps_taken": [f"[CLASSIFY] {result.request_type} | {urgency} | {result.sub_topic}"],
+        "steps_taken": [f"[CLASSIFY] {request_type} | {urgency} | {result.sub_topic}"],
     }
 
 

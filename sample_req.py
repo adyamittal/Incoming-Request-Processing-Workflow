@@ -11,6 +11,6 @@ SAMPLES = {
         "Please transfer £150,000 from my current account to my investment account and update my monthly standing order to £3,000 from next month. Confirm once the request has been routed and logged."
     ),
     "escalation": (
-        "If this complaint is not resolved immediately, I will escalate it to the regulator and my solicitor. This is a serious matter and I expect a senior manager to review it today."
+        "This is a highly delayed and unacceptable service failure. I want a senior manager to review it today because the handling has been terrible, my complaint has been ignored, and I am prepared to escalate this to the regulator and my solicitor immediately."
     ),
 }
