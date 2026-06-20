@@ -61,6 +61,8 @@ class RequestState(TypedDict, total=False):
     remediation_summary: str
     case_log_entry: str
     status: str
+    priority_flag: str
+    automation_paused: str
     steps_taken: Annotated[list[str], operator.add]
 
 
@@ -77,6 +79,7 @@ def _case_log(state: RequestState) -> str:
         f"TYPE={state.get('request_type', '')} | SUB_TOPIC={state.get('sub_topic', '')} | "
         f"URGENCY={state.get('urgency', '')} | SENTIMENT={state.get('client_sentiment', '')} | "
         f"ROUTED_TO={state.get('routing_target', '')} | FOLLOW_UP={state.get('follow_up_action', '')} | "
+        f"PRIORITY_FLAG={state.get('priority_flag', 'no')} | AUTO_PAUSED={state.get('automation_paused', 'no')} | "
         f"STATUS={state.get('status', 'processed')}"
     )
 
@@ -135,7 +138,7 @@ def complaint_acknowledge(state: RequestState):
     return {
         "draft_response": draft,
         "routing_target": "Senior Support Lead" if state["urgency"] in ("low", "medium") else "Senior Support Lead + Compliance",
-        "follow_up_action": "Review and respond within 1 business day" if state["urgency"] in ("low", "medium") else "Priority review within 2 hours",
+        "follow_up_action": "Acknowledgement sent; senior handler review pending",
         "status": "in_review",
         "steps_taken": ["[COMPLAINT] Step 1: Drafted acknowledgement"],
     }
@@ -145,6 +148,7 @@ def complaint_escalate(state: RequestState):
     return {
         "routing_target": "Head of Customer Operations + Compliance",
         "follow_up_action": "Escalate to senior handler and assign priority follow-up",
+        "priority_flag": "yes",
         "remediation_summary": "Complaint acknowledged and escalated for review.",
         "status": "escalated",
         "steps_taken": ["[COMPLAINT] Step 2: Routed to senior handler"],
@@ -152,7 +156,19 @@ def complaint_escalate(state: RequestState):
 
 
 def complaint_log(state: RequestState):
-    return {"case_log_entry": _case_log(state), "steps_taken": ["[COMPLAINT] Step 3: Logged with priority flag"]}
+    return {
+        "case_log_entry": _case_log(state),
+        "steps_taken": ["[COMPLAINT] Step 3: Logged with priority flag"],
+    }
+
+
+def complaint_set_follow_up(state: RequestState):
+    return {
+        "follow_up_action": "2-hour follow-up reminder scheduled",
+        "remediation_summary": "Complaint acknowledged, escalated, logged with priority, and scheduled for 2-hour follow-up.",
+        "status": "follow_up_scheduled",
+        "steps_taken": ["[COMPLAINT] Step 4: 2-hour follow-up reminder set"],
+    }
 
 
 def enquiry_generate_response(state: RequestState):
@@ -228,7 +244,8 @@ def service_confirm_and_log(state: RequestState):
 def escalation_flag_human(state: RequestState):
     return {
         "routing_target": "Supervisor + Compliance + Legal Review",
-        "follow_up_action": "Pause automation and request human review immediately",
+        "follow_up_action": "Request human review immediately",
+        "automation_paused": "yes",
         "status": "human_review_required",
         "steps_taken": ["[ESCALATION] Step 1: Human review required"],
     }
@@ -253,9 +270,17 @@ def escalation_draft_urgent_ack(state: RequestState):
 
 def escalation_notify_supervisor(state: RequestState):
     return {
-        "remediation_summary": "Escalation flagged for immediate review and supervisor notification.",
+        "remediation_summary": "Escalation flagged for immediate review, supervisor notification sent, and auto-resolution paused.",
         "case_log_entry": _case_log(state),
         "steps_taken": ["[ESCALATION] Step 3: Supervisor notified"],
+    }
+
+
+def escalation_pause_auto_resolution(state: RequestState):
+    return {
+        "follow_up_action": "Auto-resolution paused until human review completes",
+        "status": "automation_paused",
+        "steps_taken": ["[ESCALATION] Step 4: Auto-resolution paused"],
     }
 
 
@@ -265,6 +290,7 @@ def build_graph():
     graph.add_node("complaint_acknowledge", complaint_acknowledge)
     graph.add_node("complaint_escalate", complaint_escalate)
     graph.add_node("complaint_log", complaint_log)
+    graph.add_node("complaint_set_follow_up", complaint_set_follow_up)
     graph.add_node("enquiry_generate_response", enquiry_generate_response)
     graph.add_node("enquiry_log_resolved", enquiry_log_resolved)
     graph.add_node("service_extract_and_route", service_extract_and_route)
@@ -272,6 +298,7 @@ def build_graph():
     graph.add_node("escalation_flag_human", escalation_flag_human)
     graph.add_node("escalation_draft_urgent_ack", escalation_draft_urgent_ack)
     graph.add_node("escalation_notify_supervisor", escalation_notify_supervisor)
+    graph.add_node("escalation_pause_auto_resolution", escalation_pause_auto_resolution)
 
     graph.add_edge(START, "classify")
     graph.add_conditional_edges(
@@ -287,7 +314,8 @@ def build_graph():
 
     graph.add_edge("complaint_acknowledge", "complaint_escalate")
     graph.add_edge("complaint_escalate", "complaint_log")
-    graph.add_edge("complaint_log", END)
+    graph.add_edge("complaint_log", "complaint_set_follow_up")
+    graph.add_edge("complaint_set_follow_up", END)
 
     graph.add_edge("enquiry_generate_response", "enquiry_log_resolved")
     graph.add_edge("enquiry_log_resolved", END)
@@ -297,7 +325,8 @@ def build_graph():
 
     graph.add_edge("escalation_flag_human", "escalation_draft_urgent_ack")
     graph.add_edge("escalation_draft_urgent_ack", "escalation_notify_supervisor")
-    graph.add_edge("escalation_notify_supervisor", END)
+    graph.add_edge("escalation_notify_supervisor", "escalation_pause_auto_resolution")
+    graph.add_edge("escalation_pause_auto_resolution", END)
     return graph.compile()
 
 
