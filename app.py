@@ -49,6 +49,40 @@ TYPE_ICON = {
     "escalation": "[ESCALATION]",
 }
 
+REMEDIATION_PLAN = {
+    "complaint": [
+        "Acknowledge receipt",
+        "Escalate to senior handler",
+        "Log case with priority flag",
+        "Set 2-hour follow-up reminder",
+    ],
+    "general_enquiry": [
+        "Classify sub-topic",
+        "Generate AI response from knowledge base",
+        "Send response",
+        "Log as resolved",
+    ],
+    "service_request": [
+        "Extract required details",
+        "Route to relevant department",
+        "Generate confirmation to requester",
+        "Set SLA timer",
+    ],
+    "escalation": [
+        "Immediately flag for human review",
+        "Draft urgent acknowledgement",
+        "Notify supervisor",
+        "Pause auto-resolution",
+    ],
+}
+
+REMEDIATION_TITLE = {
+    "complaint": "Complaint Remediation Actions",
+    "general_enquiry": "Enquiry Resolution Actions",
+    "service_request": "Service Request Actions",
+    "escalation": "Escalation Remediation Actions",
+}
+
 
 st.title("Incoming Request Processor")
 st.caption("Groq-powered triage and remediation workflow for the task brief")
@@ -106,9 +140,14 @@ with tab_process:
                 unsafe_allow_html=True,
             )
 
-            st.markdown("**Remediation Steps Taken**")
+            st.markdown(f"**{REMEDIATION_TITLE.get(request_type, 'Remediation Actions')}**")
             for step in result.get("steps_taken", []):
                 st.markdown(f"- {step}")
+
+            if request_type in REMEDIATION_PLAN:
+                st.markdown("**Branch Remediation Plan**")
+                for step in REMEDIATION_PLAN[request_type]:
+                    st.markdown(f"- {step}")
 
             with st.expander("Draft Response / Acknowledgement", expanded=True):
                 st.write(result.get("draft_response", "-"))
